@@ -1,5 +1,6 @@
 import { CliApp } from "./cli/cli-app.ts";
 import type { Command, Output } from "./cli/command.ts";
+import { AnalyzeCommand } from "./cli/commands/analyze-command.ts";
 import { CacheCommand } from "./cli/commands/cache-command.ts";
 import { DoctorCommand } from "./cli/commands/doctor-command.ts";
 import { usage } from "./cli/usage.ts";
@@ -47,6 +48,7 @@ function buildCommands(
   );
 
   return [
+    new AnalyzeCommand({ pageviews, clock, output }),
     new DoctorCommand({ settings, cache, pageviews, clock, output }),
     new CacheCommand(cache, output),
   ];
