@@ -9,6 +9,7 @@ import {
 import { MonthIndex } from "../../domain/trend/month-index.ts";
 import type { SeriesInput } from "../../domain/trend/model.ts";
 import { periodStats } from "../../domain/trend/period.ts";
+import { classify } from "../../domain/trend/verdict.ts";
 import { makeWindows } from "../../domain/trend/windows.ts";
 import type { PageviewsApi } from "../../infrastructure/wikimedia/pageviews-api.ts";
 import type { ParsedArgs } from "../args.ts";
@@ -96,14 +97,18 @@ function report(
     `  recent   ${range(recentMonths)}: ${int(p.recent.total)} views, median day ${int(p.recent.medianDaily)}`,
     `  baseline ${range(baselineMonths)}: ${int(p.baseline.total)} views, median day ${int(p.baseline.medianDaily)}`,
     ``,
-    `  growth           ${pct(yoy.growth)}`,
+    `  verdict          ${classify(yoy.growth, yoy.ci)}`,
+    ``,
+    `  growth           ${pct(yoy.growth)}  ${range95(yoy.ci)}`,
     `  edition growth   ${pct(yoy.projectGrowth)}`,
-    `  normalized       ${pct(yoy.normalizedGrowth)}   (topic relative to the whole edition)`,
+    `  normalized       ${pct(yoy.normalizedGrowth)}  ${range95(yoy.normCi)}  (topic vs the whole edition)`,
     `  median day       ${pct(yoy.growthMedianDay)}`,
-    `  months up        ${yoy.monthsUp}/${yoy.monthsCompared}`,
+    `  months up        ${yoy.monthsUp}/${yoy.monthsCompared}  (sign test p = ${yoy.signP.toFixed(3)})`,
   ].join("\n");
 }
 
 const int = (n: number) => Math.round(n).toLocaleString("en-US");
+const range95 = (ci: [number, number] | null) =>
+  ci === null ? "" : `[95%: ${pct(ci[0])} … ${pct(ci[1])}]`;
 const pct = (v: number | null) =>
   v === null ? "n/a" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
