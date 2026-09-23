@@ -17,6 +17,16 @@ export function median(a: readonly number[]): number {
   return quantile(a, 0.5);
 }
 
+export function rollingMedian(values: readonly number[], half: number): number[] {
+  const out = new Array<number>(values.length);
+  for (let i = 0; i < values.length; i++) {
+    const lo = Math.max(0, i - half);
+    const hi = Math.min(values.length - 1, i + half);
+    out[i] = median(values.slice(lo, hi + 1));
+  }
+  return out;
+}
+
 export function mulberry32(seed: number): () => number {
   let t = seed >>> 0;
   return () => {
