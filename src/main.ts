@@ -3,7 +3,6 @@ import { createCli } from "./composition-root.ts";
 import { SkillError } from "./domain/errors.ts";
 import { loadSettings } from "./settings.ts";
 
-
 const output = new ConsoleOutput();
 try {
   process.exitCode = await createCli(loadSettings(), output).run(process.argv.slice(2));

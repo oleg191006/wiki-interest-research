@@ -1,6 +1,6 @@
 import { InputError } from "../domain/errors.ts";
 
-const BOOL_FLAGS = new Set(["help"]);
+const BOOL_FLAGS = new Set(["help", "clear", "offline", "refresh"]);
 
 export class ParsedArgs {
   readonly argv: string[];
