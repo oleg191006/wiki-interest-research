@@ -1,0 +1,27 @@
+{
+  "name": "wiki-interest-research",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent skill: measure public interest in topics via Wikipedia pageviews across language editions, check how trustworthy a trend is, and produce charts and a one-page PDF brief.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "wiki": "node scripts/wiki.mjs",
+    "doctor": "node scripts/wiki.mjs doctor",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.9.9",
+    "typescript": "^7.0.2"
+  },
+  "license": "MIT"
+}
