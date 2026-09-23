@@ -1,4 +1,5 @@
 import { InputError } from "../domain/errors.ts";
+import type { CacheMode } from "../infrastructure/http/cached-json-client.ts";
 import { parseArgs } from "./args.ts";
 import type { Command, Output } from "./command.ts";
 
@@ -6,7 +7,7 @@ export interface CliConfig {
   usage: string;
   launcher: string;
   output: Output;
-  commands: Command[];
+  commands: (mode: CacheMode) => Command[];
 }
 
 export class CliApp {
@@ -17,13 +18,17 @@ export class CliApp {
   }
 
   async run(argv: string[]): Promise<number> {
-    const { usage, launcher, output, commands } = this.config;
+    const { usage, launcher, output } = this.config;
     const args = parseArgs(argv, launcher);
 
     if (!args.command || args.command === "help" || args.has("help")) {
       output.print(usage);
       return 0;
     }
+    const commands = this.config.commands({
+      offline: args.has("offline"),
+      refresh: args.has("refresh"),
+    });
     const command = commands.find((c) => c.name === args.command);
     if (!command) {
       throw new InputError(

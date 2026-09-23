@@ -5,7 +5,12 @@ export function usage(s: Settings): string {
 
 Usage: ${s.launcher} <command> [options]
 
-  doctor              Check Node, dependencies and the skill folder.
+  doctor              Check Node, dependencies, the cache folder and the Wikimedia connection.
+  cache [--clear]     Show the size of the download cache, or empty it.
 
-Commands still being built: find, related, analyze, report, cache.`;
+Global switches:
+  --offline           Use cached data only; fail instead of downloading.
+  --refresh           Ignore the cache and download again.
+
+Commands still being built: find, related, analyze, report.`;
 }
