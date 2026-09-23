@@ -4,14 +4,13 @@ import type { CheckContext, TrustCheck } from "./trust-check.ts";
 
 export type { CheckContext, TrustCheck } from "./trust-check.ts";
 
-/** Checks in the order their flags are reported (warnings first, then context notes). */
 export const DEFAULT_TRUST_CHECKS: readonly TrustCheck[] = [
   new NoBaselineCheck(),
   new VolumeCheck(),
   new MonthConsistencyCheck(),
 ];
 
-/** Run every check; returns the flags and the total confidence penalty. */
+/** Run every check, returns the flags and the total confidence penalty. */
 export function runTrustChecks(
   ctx: CheckContext,
   checks: readonly TrustCheck[],
