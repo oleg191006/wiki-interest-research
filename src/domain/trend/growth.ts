@@ -1,6 +1,7 @@
-import { sum } from "../stats.ts";
+import { hashSeed, pairedBootstrap, signTestP, sum } from "../stats.ts";
 import type { MonthIndex } from "./month-index.ts";
 import type { PeriodStats, SeriesInput } from "./model.ts";
+import { BOOTSTRAP_ITERATIONS } from "./thresholds.ts";
 import type { Windows } from "./windows.ts";
 
 export interface ComparedPeriods {
@@ -16,8 +17,11 @@ export interface YearOverYear {
   projectGrowth: number | null; // the whole language edition
   normalizedGrowth: number | null; // topic relative to the whole edition
   growthMedianDay: number | null;
+  ci: [number, number] | null;
+  normCi: [number, number] | null;
   monthsUp: number;
   monthsCompared: number;
+  signP: number;
   recentMonthTotals: number[];
   baselineMonthTotals: number[];
 }
@@ -42,6 +46,8 @@ export function compareYearOverYear(
   // Month pairs: each recent month vs the same calendar month a year earlier.
   const r = w.recentMonths.map((m) => index.total(s.views, m));
   const b = w.baselineMonths.map((m) => index.total(s.views, m));
+  const pr = w.recentMonths.map((m) => index.total(s.projViews, m));
+  const pb = w.baselineMonths.map((m) => index.total(s.projViews, m));
   let monthsUp = 0;
   let monthsCompared = 0;
   r.forEach((v, i) => {
@@ -49,13 +55,26 @@ export function compareYearOverYear(
     if (v > b[i]) monthsUp++;
   });
 
+  // The interval comes from resampling month pairs, so it is seeded by the series id and
+  // identical on every run.
+  let ci: [number, number] | null = null;
+  let normCi: [number, number] | null = null;
+  if (growth !== null) {
+    const boot = pairedBootstrap(r, b, pr, pb, hashSeed(s.id), BOOTSTRAP_ITERATIONS);
+    ci = [boot.low, boot.high];
+    normCi = [boot.normLow, boot.normHigh];
+  }
+
   return {
     growth,
     projectGrowth,
     normalizedGrowth,
     growthMedianDay,
+    ci,
+    normCi,
     monthsUp,
     monthsCompared,
+    signP: signTestP(monthsUp, monthsCompared),
     recentMonthTotals: r,
     baselineMonthTotals: b,
   };
