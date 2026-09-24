@@ -1,6 +1,7 @@
 import type { Lang } from "../domain/languages/language.ts";
 import type {
   Access,
+  CountryShare,
   Entity,
   PageInfo,
   RedirectStats,
@@ -30,4 +31,7 @@ export interface PageviewSource {
     end: string,
   ): Promise<number[]>;
   editionDaily(lang: Lang, access: Access, start: string, end: string): Promise<number[]>;
+  uniqueDevices(lang: Lang, firstMonth: string, lastMonth: string): Promise<Record<string, number>>;
+  topCountries(lang: Lang, month: string): Promise<CountryShare[]>;
+  verificationUrl(lang: Lang, titles: string[], start: string, end: string): string;
 }

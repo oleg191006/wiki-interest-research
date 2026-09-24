@@ -49,6 +49,7 @@ function buildCommands(
   });
   const client = new CachedJsonClient(transport, cache, mode, stats);
   const pageviews = new PageviewsApi(
+    client,
     new IncrementalSeriesCache({ transport, store: cache, mode, stats, clock }),
   );
   const catalog = new WikidataApi(client, cache);

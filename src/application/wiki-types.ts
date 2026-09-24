@@ -38,6 +38,11 @@ export interface SearchResultPage {
   viewsPerDay?: number;
 }
 
+export interface CountryShare {
+  country: string;
+  share: number;
+}
+
 export function entityLabel(e: Entity | undefined, lang: string): string {
   if (!e) return "";
   return e.labels[lang] ?? e.labels.en ?? Object.values(e.labels)[0] ?? e.qid;
