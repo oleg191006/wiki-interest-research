@@ -1,3 +1,4 @@
+import type { UiLang } from "../domain/languages/display-names.ts";
 import type { Lang } from "../domain/languages/language.ts";
 import type { Analysis } from "./analysis-model.ts";
 import type {
@@ -41,4 +42,23 @@ export interface PageviewSource {
 export interface AnalysisStore {
   save(runDir: string, analysis: Analysis): void;
   load(runDir: string): Analysis;
+}
+
+/** The agent's own words for the report; everything else comes from the analysis. */
+export interface ReportText {
+  title?: string;
+  question?: string;
+  answer?: string;
+  recommendations: string[];
+  notes: string[];
+}
+
+export interface RenderedReport {
+  file: string;
+  scale: number;
+  dropped: string[]; // sections left out so the report fits on one page
+}
+
+export interface ReportRenderer {
+  render(analysis: Analysis, ui: UiLang, text: ReportText, file: string): Promise<RenderedReport>;
 }
