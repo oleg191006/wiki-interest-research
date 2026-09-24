@@ -50,6 +50,7 @@ export class SpikeDetection {
         date: s.days[i],
         views: v,
         ratio: v / Math.max(this.median[i], 1),
+        desktopShare: v > 0 ? s.desktop[i] / v : 0,
       }));
   }
 }

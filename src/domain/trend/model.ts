@@ -65,6 +65,7 @@ export interface Spike {
   date: string;
   views: number;
   ratio: number;
+  desktopShare: number;
 }
 
 export interface PeriodStats {
