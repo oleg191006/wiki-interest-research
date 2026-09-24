@@ -1,4 +1,5 @@
 import { languageName, type UiLang } from "../domain/languages/display-names.ts";
+import type { Analysis } from "./analysis-model.ts";
 
 export function seriesLabel(
   topic: string,
@@ -12,4 +13,8 @@ export function seriesLabel(
   if (multiTopic && multiLang) return `${topic} · ${lang}`;
   if (multiTopic) return topic;
   return langLabel;
+}
+
+export function labelIn(a: Analysis, s: { topic: string; lang: string }, ui: UiLang): string {
+  return seriesLabel(s.topic, s.lang, a.topics.length > 1, a.params.langs.length > 1, ui);
 }
