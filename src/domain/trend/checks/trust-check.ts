@@ -1,5 +1,5 @@
 import type { ComparedPeriods, YearOverYear } from "../growth.ts";
-import type { Flag, FlagCode, SeriesInput, Spike, Verdict } from "../model.ts";
+import type { Flag, FlagCode, Seasonality, SeriesInput, Spike, Verdict } from "../model.ts";
 import type { SpikeDetection } from "../spikes.ts";
 import type { Windows } from "../windows.ts";
 
@@ -15,6 +15,7 @@ export interface CheckContext {
   growthDespiked: number | null;
   spikeShareRecent: number;
   monthly: number[]; // monthly totals over windows.months
+  seasonality: Seasonality | null;
 }
 
 export interface Finding {

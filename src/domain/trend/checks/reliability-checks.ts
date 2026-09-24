@@ -131,3 +131,11 @@ export class NewArticleCheck implements TrustCheck {
     return null;
   }
 }
+
+export class UncertaintyCheck implements TrustCheck {
+  evaluate(ctx: CheckContext): Finding | null {
+    const ci = ctx.yoy.ci;
+    if (ctx.verdict !== "unclear" || !ci) return null;
+    return warning("ci_includes_zero", { low: pct(ci[0]), high: pct(ci[1]) }, 0);
+  }
+}

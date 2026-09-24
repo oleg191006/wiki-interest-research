@@ -1,4 +1,5 @@
 import type { Flag } from "../model.ts";
+import { PlatformContextNote, SeasonalNote, SpikesPresentNote } from "./context-notes.ts";
 import {
   AutomatedTrafficCheck,
   MonthConsistencyCheck,
@@ -6,6 +7,7 @@ import {
   NoBaselineCheck,
   PlatformOppositeCheck,
   SpikeDrivenCheck,
+  UncertaintyCheck,
   VolumeCheck,
 } from "./reliability-checks.ts";
 import type { CheckContext, TrustCheck } from "./trust-check.ts";
@@ -18,11 +20,14 @@ export const DEFAULT_TRUST_CHECKS: readonly TrustCheck[] = [
   new MonthConsistencyCheck(),
   new SpikeDrivenCheck(),
   new PlatformOppositeCheck(),
+  new UncertaintyCheck(),
   new AutomatedTrafficCheck(),
   new NewArticleCheck(),
+  new SpikesPresentNote(),
+  new PlatformContextNote(),
+  new SeasonalNote(),
 ];
 
-/** Run every check, returns the flags and the total confidence penalty. */
 export function runTrustChecks(
   ctx: CheckContext,
   checks: readonly TrustCheck[],
