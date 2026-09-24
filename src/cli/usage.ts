@@ -5,6 +5,10 @@ export function usage(s: Settings): string {
 
 Usage: ${s.launcher} <command> [options]
 
+  find "<topic>"      Which Wikidata item a topic is, and its article in each edition.
+    --lang <codes>      Comma-separated Wikipedia editions, e.g. uk,pl,cs.
+    --limit <n>         How many Wikidata matches to show, default 5.
+
   analyze             Year-over-year change of one article's pageviews.
     --article <title>   Wikipedia article title, e.g. "Астрономія".
     --lang <code>       Wikipedia edition, default uk.
@@ -18,5 +22,5 @@ Global switches:
   --offline           Use cached data only; fail instead of downloading.
   --refresh           Ignore the cache and download again.
 
-Commands still being built: find, related, report.`;
+Commands still being built: related, report.`;
 }

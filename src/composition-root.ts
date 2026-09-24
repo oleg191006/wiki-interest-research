@@ -2,15 +2,18 @@ import { CliApp } from "./cli/cli-app.ts";
 import type { Command, Output } from "./cli/command.ts";
 import { AnalyzeCommand } from "./cli/commands/analyze-command.ts";
 import { CacheCommand } from "./cli/commands/cache-command.ts";
+import { FindCommand } from "./cli/commands/find-command.ts";
 import { DoctorCommand } from "./cli/commands/doctor-command.ts";
 import { usage } from "./cli/usage.ts";
 import { FixedClock, SystemClock, type Clock } from "./domain/clock.ts";
 import { FileCache } from "./infrastructure/cache/file-cache.ts";
-import type { CacheMode } from "./infrastructure/http/cached-json-client.ts";
+import { CachedJsonClient, type CacheMode } from "./infrastructure/http/cached-json-client.ts";
 import { FetchTransport, RequestStats } from "./infrastructure/http/fetch-transport.ts";
 import { RateLimiter } from "./infrastructure/http/rate-limiter.ts";
 import { IncrementalSeriesCache } from "./infrastructure/wikimedia/incremental-series-cache.ts";
 import { PageviewsApi } from "./infrastructure/wikimedia/pageviews-api.ts";
+import { WikidataApi } from "./infrastructure/wikimedia/wikidata-api.ts";
+import { WikipediaApi } from "./infrastructure/wikimedia/wikipedia-api.ts";
 import type { Settings } from "./settings.ts";
 
 export function createCli(settings: Settings, output: Output): CliApp {
@@ -43,11 +46,15 @@ function buildCommands(
     stats,
     log,
   });
+  const client = new CachedJsonClient(transport, cache, mode, stats);
   const pageviews = new PageviewsApi(
     new IncrementalSeriesCache({ transport, store: cache, mode, stats, clock }),
   );
+  const catalog = new WikidataApi(client, cache);
+  const directory = new WikipediaApi(client);
 
   return [
+    new FindCommand({ catalog, directory, launcher: settings.launcher, output }),
     new AnalyzeCommand({ pageviews, clock, output }),
     new DoctorCommand({ settings, cache, pageviews, clock, output }),
     new CacheCommand(cache, output),
