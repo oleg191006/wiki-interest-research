@@ -1,14 +1,17 @@
 import { AnalyzeTopics } from "./application/analyze/analyze-topics.ts";
+import { CreateReport } from "./application/create-report.ts";
 import { CliApp } from "./cli/cli-app.ts";
 import type { Command, Output } from "./cli/command.ts";
 import { AnalyzeCommand } from "./cli/commands/analyze-command.ts";
 import { CacheCommand } from "./cli/commands/cache-command.ts";
+import { ReportCommand } from "./cli/commands/report-command.ts";
 import { FindCommand } from "./cli/commands/find-command.ts";
 import { DoctorCommand } from "./cli/commands/doctor-command.ts";
 import { usage } from "./cli/usage.ts";
 import { FixedClock, SystemClock, type Clock } from "./domain/clock.ts";
 import { JsonAnalysisStore } from "./infrastructure/storage/json-analysis-store.ts";
 import { ArtifactWriter } from "./presentation/export/artifact-writer.ts";
+import { PdfReportRenderer } from "./presentation/pdf/pdf-report.ts";
 import { SummaryView } from "./presentation/text/summary-view.ts";
 import { FileCache } from "./infrastructure/cache/file-cache.ts";
 import { CachedJsonClient, type CacheMode } from "./infrastructure/http/cached-json-client.ts";
@@ -39,6 +42,7 @@ function buildCommands(
   output: Output,
 ): Command[] {
   const log = (message: string) => output.log(message);
+  const store = new JsonAnalysisStore();
   const cache = new FileCache(settings.cacheDir);
   const stats = new RequestStats();
   const transport = new FetchTransport({
@@ -70,7 +74,7 @@ function buildCommands(
     new FindCommand({ catalog, directory, launcher: settings.launcher, output }),
     new AnalyzeCommand({
       useCase: analyze,
-      store: new JsonAnalysisStore(),
+      store,
       artifacts: new ArtifactWriter(),
       summary: new SummaryView(settings.launcher),
       stats,
@@ -78,6 +82,10 @@ function buildCommands(
       output,
     }),
     new DoctorCommand({ settings, cache, pageviews, clock, output }),
+    new ReportCommand(
+      new CreateReport(store, new PdfReportRenderer(settings.debug ? log : undefined)),
+      output,
+    ),
     new CacheCommand(cache, output),
   ];
 }

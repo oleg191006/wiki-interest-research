@@ -10,7 +10,7 @@ import type { Settings } from "../../settings.ts";
 import type { ParsedArgs } from "../args.ts";
 import type { Command, Output } from "../command.ts";
 
-const DEPENDENCIES = ["tsx"];
+const DEPENDENCIES = ["pdfkit", "svg-to-pdfkit", "dejavu-fonts-ttf", "tsx"];
 
 export interface DoctorDeps {
   settings: Settings;

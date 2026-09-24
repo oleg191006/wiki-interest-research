@@ -20,6 +20,15 @@ Usage: ${s.launcher} <command> [options]
     --no-redirects      Skip the redirect check (one request less per article).
     --ui-lang <en|uk>   Language of labels, default en.
 
+  report              One-page PDF from an analyze run plus the agent's own words.
+    --run <dir>         Folder written by analyze (required).
+    --lang <en|uk>      Language of the report, default en.
+    --question <text>   The user's question, quoted in the PDF.
+    --answer <text>     2-4 sentences of conclusion.
+    --rec <text>        Repeatable recommendation.
+    --note <text>       Repeatable caveat.
+    --out <file>        Output file, default <run>/report.pdf.
+
   doctor              Check Node, dependencies, the cache folder and the Wikimedia connection.
   cache [--clear]     Show the size of the download cache, or empty it.
 
@@ -27,5 +36,5 @@ Global switches:
   --offline           Use cached data only; fail instead of downloading.
   --refresh           Ignore the cache and download again.
 
-Commands still being built: related, report.`;
+Commands still being built: related.`;
 }
