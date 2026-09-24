@@ -68,3 +68,26 @@ export function compactDate(iso: string): string {
 export function fromApiTimestamp(ts: string): string {
   return `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}`;
 }
+export function formatMonth(
+  month: string,
+  locale: string,
+  style: "short" | "long" = "short",
+): string {
+  const d = toDate(monthStart(month));
+  const name = new Intl.DateTimeFormat(locale, { month: style, timeZone: "UTC" })
+    .format(d)
+    .replace(/\.$/, "");
+  return `${name} ${month.slice(0, 4)}`;
+}
+
+export function monthShort(month: string, locale: string): string {
+  const d = toDate(monthStart(month));
+  return new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" })
+    .format(d)
+    .replace(/\.$/, "");
+}
+
+export function monthName(monthNumber: number, locale: string): string {
+  const d = new Date(Date.UTC(2020, monthNumber - 1, 15));
+  return new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(d);
+}
