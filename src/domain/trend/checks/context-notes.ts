@@ -39,3 +39,10 @@ export class SeasonalNote implements TrustCheck {
     });
   }
 }
+
+export class RedirectShareNote implements TrustCheck {
+  evaluate(ctx: CheckContext): Finding | null {
+    const share = ctx.input.redirectShare ?? 0;
+    return share >= 0.1 ? note("redirect_share", { share: pct(share) }) : null;
+  }
+}

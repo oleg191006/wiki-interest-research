@@ -1,3 +1,9 @@
+export interface ArticleRef {
+  title: string;
+  created?: string;
+}
+
+/** Daily human views of one topic (sum of its articles) in one edition, plus the edition's totals. */
 export interface SeriesInput {
   id: string;
   topic: string;
@@ -7,6 +13,8 @@ export interface SeriesInput {
   desktop: number[]; // the desktop part of `views`; the rest is mobile
   projViews: number[];
   projDesktop: number[];
+  articles: ArticleRef[];
+  redirectShare?: number; // share of recent views that land on redirects (last 60 days)
 }
 
 export type Verdict = "rising" | "falling" | "flat" | "unclear" | "insufficient";
@@ -22,6 +30,7 @@ export type FlagCode =
   | "bot_suspected"
   | "article_new"
   | "abrupt_start"
+  | "redirect_share"
   | "ci_includes_zero"
   | "spikes_present"
   | "platform_context"

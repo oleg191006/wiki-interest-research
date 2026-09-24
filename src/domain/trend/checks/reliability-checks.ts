@@ -1,3 +1,4 @@
+import { monthStart } from "../../calendar.ts";
 import { median, sum } from "../../stats.ts";
 import { BOT_DESKTOP_SHIFT, CONSISTENT_SHARE, LOW_VOLUME, VERY_LOW_VOLUME } from "../thresholds.ts";
 import {
@@ -116,6 +117,18 @@ export class AutomatedTrafficCheck implements TrustCheck {
  */
 export class NewArticleCheck implements TrustCheck {
   evaluate(ctx: CheckContext): Finding | null {
+    const compareStart = monthStart(ctx.windows.baselineMonths[0]);
+    const created = ctx.input.articles.filter((a) => a.created && a.created >= compareStart);
+    if (created.length) {
+      return warning(
+        "article_new",
+        {
+          titles: created.map((a) => a.title).join(", "),
+          created: created.map((a) => a.created).join(", "),
+        },
+        2,
+      );
+    }
     const month = this.abruptStart(ctx);
     return month ? warning("abrupt_start", { month }, 2) : null;
   }

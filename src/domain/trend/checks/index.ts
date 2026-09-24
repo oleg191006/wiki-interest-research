@@ -1,5 +1,10 @@
 import type { Flag } from "../model.ts";
-import { PlatformContextNote, SeasonalNote, SpikesPresentNote } from "./context-notes.ts";
+import {
+  PlatformContextNote,
+  RedirectShareNote,
+  SeasonalNote,
+  SpikesPresentNote,
+} from "./context-notes.ts";
 import {
   AutomatedTrafficCheck,
   MonthConsistencyCheck,
@@ -25,6 +30,7 @@ export const DEFAULT_TRUST_CHECKS: readonly TrustCheck[] = [
   new NewArticleCheck(),
   new SpikesPresentNote(),
   new PlatformContextNote(),
+  new RedirectShareNote(),
   new SeasonalNote(),
 ];
 

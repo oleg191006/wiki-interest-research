@@ -15,6 +15,7 @@ export interface Synth {
   desktopShare?: (day: string, i: number) => number;
   projectDesktopShare?: number;
   noise?: number; // relative day-to-day noise, deterministic
+  created?: string;
 }
 
 /** Build a SeriesInput from formulas; noise comes from a seeded PRNG so tests are deterministic. */
@@ -35,6 +36,7 @@ export function synth(id: string, o: Synth): SeriesInput {
     desktop: views.map((v, i) => Math.round(v * deskShare[i])),
     projViews: proj,
     projDesktop: proj.map((p) => Math.round(p * (o.projectDesktopShare ?? 0.3))),
+    articles: [{ title: id, created: o.created ?? "2010-01-01" }],
   };
 }
 
