@@ -9,11 +9,14 @@ Usage: ${s.launcher} <command> [options]
     --lang <codes>      Comma-separated Wikipedia editions, e.g. uk,pl,cs.
     --limit <n>         How many Wikidata matches to show, default 5.
 
-  analyze             Year-over-year change of one article's pageviews.
-    --article <title>   Wikipedia article title, e.g. "Астрономія".
-    --lang <code>       Wikipedia edition, default uk.
+  analyze             Year-over-year change of one or more topics.
+    --topic <spec>      Repeatable. "Name=Q333,Q544", "pl:Article title" or free text.
+    --langs <codes>     Comma-separated Wikipedia editions, default uk.
     --months <n>        Months shown, default 24.
     --window <n>        Months compared with a year earlier, 3-12, default 12.
+    --search-lang <c>   Language of free-text topics, default en.
+    --no-redirects      Skip the redirect check (one request less per article).
+    --ui <en|uk>        Language of labels, default en.
 
   doctor              Check Node, dependencies, the cache folder and the Wikimedia connection.
   cache [--clear]     Show the size of the download cache, or empty it.

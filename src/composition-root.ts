@@ -1,3 +1,4 @@
+import { AnalyzeTopics } from "./application/analyze/analyze-topics.ts";
 import { CliApp } from "./cli/cli-app.ts";
 import type { Command, Output } from "./cli/command.ts";
 import { AnalyzeCommand } from "./cli/commands/analyze-command.ts";
@@ -52,10 +53,18 @@ function buildCommands(
   );
   const catalog = new WikidataApi(client, cache);
   const directory = new WikipediaApi(client);
+  const analyze = new AnalyzeTopics({
+    catalog,
+    directory,
+    pageviews,
+    clock,
+    version: settings.version,
+    log,
+  });
 
   return [
     new FindCommand({ catalog, directory, launcher: settings.launcher, output }),
-    new AnalyzeCommand({ pageviews, clock, output }),
+    new AnalyzeCommand({ useCase: analyze, launcher: settings.launcher, output }),
     new DoctorCommand({ settings, cache, pageviews, clock, output }),
     new CacheCommand(cache, output),
   ];

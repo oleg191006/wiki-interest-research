@@ -1,23 +1,19 @@
-import { eachDay, lastCompleteMonth } from "../../domain/calendar.ts";
-import type { Clock } from "../../domain/clock.ts";
-import { InputError } from "../../domain/errors.ts";
-import { parseLangs } from "../../domain/languages/language.ts";
-import { analyzeSeries } from "../../domain/trend/analyze-series.ts";
-import type { Flag, SeriesInput, SeriesResult } from "../../domain/trend/model.ts";
-import { makeWindows, type Windows } from "../../domain/trend/windows.ts";
-import type { PageviewsApi } from "../../infrastructure/wikimedia/pageviews-api.ts";
+import type { Analysis, SeriesRecord } from "../../application/analysis-model.ts";
+import { AnalyzeTopics } from "../../application/analyze/analyze-topics.ts";
+import { parseUiLang } from "../../domain/languages/display-names.ts";
+import type { Flag } from "../../domain/trend/model.ts";
 import type { ParsedArgs } from "../args.ts";
 import type { Command, Output } from "../command.ts";
 
 export interface AnalyzeDeps {
-  pageviews: PageviewsApi;
-  clock: Clock;
+  useCase: AnalyzeTopics;
+  launcher: string;
   output: Output;
 }
 
 /**
- * Draft version: one article, one language, plain text. Topic resolution through Wikidata,
- * several languages and the shareable report arrive on day 3.
+ * analyze: one or more topics across one or more editions. Prints a plain-text summary;
+ * the shareable report (charts, PDF) is built by the report command.
  */
 export class AnalyzeCommand implements Command {
   readonly name = "analyze";
@@ -28,134 +24,61 @@ export class AnalyzeCommand implements Command {
   }
 
   async run(args: ParsedArgs): Promise<number> {
-    const { pageviews, clock, output } = this.deps;
-    const title = args.value("article") ?? args.positional[0];
-    if (!title) {
-      throw new InputError(
-        "An article title is required.",
-        'Example: analyze --article "Астрономія" --lang uk',
-      );
-    }
-    const { langs, warnings } = parseLangs(args.value("lang") ?? "uk");
-    for (const w of warnings) output.log(w);
-    const lang = langs[0];
-    const windows = makeWindows(
-      lastCompleteMonth(clock.today()),
-      args.positiveInt("months", 24),
-      args.positiveInt("window", 12),
-    );
-    const { start, end } = windows;
-
-    output.log(`Loading ${title} (${lang.project}) for ${start}..${end}`);
-    // Desktop series are loaded too: a topic whose desktop share jumps while the edition's does
-    // not is the main sign of automated traffic.
-    const [views, desktop, projViews, projDesktop] = await Promise.all([
-      pageviews.articleDaily(lang, title, "all-access", start, end),
-      pageviews.articleDaily(lang, title, "desktop", start, end),
-      pageviews.editionDaily(lang, "all-access", start, end),
-      pageviews.editionDaily(lang, "desktop", start, end),
-    ]);
-
-    const series: SeriesInput = {
-      id: `${lang.code}:${title}`,
-      topic: title,
-      lang: lang.code,
-      days: eachDay(start, end),
-      views,
-      desktop,
-      projViews,
-      projDesktop,
-    };
-
-    output.print(report(analyzeSeries(series, windows), lang.project, windows));
+    const analysis = await this.deps.useCase.execute({
+      topics: args.values("topic"),
+      langs: args.value("langs") ?? "uk",
+      months: args.positiveInt("months", 24),
+      window: args.positiveInt("window", 12),
+      searchLang: args.value("search-lang") ?? "en",
+      redirects: !args.has("no-redirects"),
+      uiLang: parseUiLang(args.value("ui")),
+      command: `${this.deps.launcher} ${args.argv.join(" ")}`,
+    });
+    this.deps.output.print(report(analysis));
     return 0;
   }
 }
 
-function report(r: SeriesResult, project: string, w: Windows): string {
-  const range = (m: string[]) => `${m[0]}..${m.at(-1)}`;
-  return [
-    `${r.topic} — ${project}`,
-    `  recent   ${range(w.recentMonths)}: ${int(r.recent.total)} views,` +
-      ` median day ${int(r.recent.medianDaily)}`,
-    `  baseline ${range(w.baselineMonths)}: ${int(r.baseline.total)} views,` +
-      ` median day ${int(r.baseline.medianDaily)}`,
-    ``,
-    `  verdict          ${r.verdict}, ${r.confidence} confidence`,
-    ``,
-    `  growth           ${pct(r.growth)}  ${range95(r.ci)}`,
-    `  edition growth   ${pct(r.projectGrowth)}`,
-    `  normalized       ${pct(r.normalizedGrowth)}  ${range95(r.normCi)}` +
-      `  (${r.normVerdict} vs the whole edition)`,
-    `  median day       ${pct(r.growthMedianDay)}`,
-    `  months up        ${r.monthsUp}/${r.monthsCompared}` +
-      `  (sign test p = ${r.signP.toFixed(3)})`,
-    `  desktop share    ${share(r.baseline.desktopShare)} -> ${share(r.recent.desktopShare)}` +
-      `  (edition ${share(r.baseline.projectDesktopShare)} -> ${share(r.recent.projectDesktopShare)})`,
-    ``,
-    ...spikeLines(r),
-    ...yearLines(r),
-    ...seasonLines(r),
-    ``,
-    ...flagLines(r.flags),
-  ].join("\n");
-}
-
-/** What is left of the growth once viral days are capped, and which days those were. */
-function spikeLines(r: SeriesResult): string[] {
+function report(a: Analysis): string {
   const lines = [
-    `  growth despiked  ${pct(r.growthDespiked)}  (spike days capped at their threshold)`,
-    `  spikes recent    ${r.spikes.length} found, ${pct(r.spikeShareRecent)} of the period's views`,
+    `${a.tool} ${a.version} — ${a.windows.start}..${a.windows.end}`,
+    `topics: ${a.params.topics.join("; ")}   editions: ${a.params.langs.join(", ")}`,
   ];
-  for (const spike of r.spikes.slice(0, 3)) {
-    lines.push(
-      `    ${spike.date}: ${int(spike.views)} views, ${spike.ratio.toFixed(1)}x the local median`,
-    );
-  }
-  return lines;
+  for (const s of a.series) lines.push(``, ...seriesLines(s, a));
+  if (a.notes.length) lines.push(``, `notes`, ...a.notes.map((n) => `  - ${n}`));
+  return lines.join("\n");
 }
 
-/** Year-by-year totals: the long view behind a single year-over-year number. */
-function yearLines(r: SeriesResult): string[] {
-  if (!r.yearly) return [];
+function seriesLines(s: SeriesRecord, a: Analysis): string[] {
+  const titles = a.topics
+    .find((t) => t.name === s.topic)
+    ?.articles[s.lang]?.map((x) => x.title)
+    .join(", ");
   return [
-    ``,
-    `  year by year`,
-    ...r.yearly.map(
-      (y) => `    ${y.from}..${y.to}: ${int(y.total).padStart(9)} views  ${pct(y.growth)}`,
-    ),
+    `${s.label}  —  ${s.verdict}, ${s.confidence} confidence`,
+    `  articles         ${titles ?? "—"}`,
+    `  recent           ${int(s.recent.total)} views, median day ${int(s.recent.medianDaily)}`,
+    `  baseline         ${int(s.baseline.total)} views, median day ${int(s.baseline.medianDaily)}`,
+    `  growth           ${pct(s.growth)}  ${range95(s.ci)}`,
+    `  normalized       ${pct(s.normalizedGrowth)}  ${range95(s.normCi)}` +
+      `  (edition ${pct(s.projectGrowth)})`,
+    `  despiked         ${pct(s.growthDespiked)}`,
+    `  months up        ${s.monthsUp}/${s.monthsCompared}  (sign test p = ${s.signP.toFixed(3)})`,
+    ...flagLines(s.flags),
   ];
 }
 
-/** The repeating yearly shape, when there is enough history to see one. */
-function seasonLines(r: SeriesResult): string[] {
-  if (!r.seasonality) return [];
-  const list = (xs: Array<{ month: number; index: number }>) =>
-    xs.map((x) => `${MONTHS[x.month - 1]} ${pct(x.index - 1)}`).join(", ") || "none";
-  return [
-    ``,
-    `  seasonal peaks   ${list(r.seasonality.peaks)}`,
-    `  seasonal troughs ${list(r.seasonality.troughs)}`,
-  ];
-}
-
-/** Trust checks that fired, with the numbers that made them fire. */
 function flagLines(flags: Flag[]): string[] {
   if (!flags.length) return ["  trust            no warnings"];
-  return [
-    "  trust",
-    ...flags.map((f) => {
-      const params = Object.entries(f.params)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(", ");
-      return `    ${f.severity} ${f.code}${params ? ` (${params})` : ""}`;
-    }),
-  ];
+  return flags.map((f) => {
+    const params = Object.entries(f.params)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(", ");
+    return `  ${f.severity === "warn" ? "warn" : "note"}             ${f.code}${params ? ` (${params})` : ""}`;
+  });
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const int = (n: number) => Math.round(n).toLocaleString("en-US");
-const share = (v: number) => `${(v * 100).toFixed(0)}%`;
 const pct = (v: number | null) =>
   v === null ? "n/a" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
 const range95 = (ci: [number, number] | null) =>
