@@ -29,6 +29,7 @@ export class AnalyzeCommand implements Command {
       langs: args.value("langs") ?? "uk",
       months: args.positiveInt("months", 24),
       window: args.positiveInt("window", 12),
+      weights: args.value("weights"),
       searchLang: args.value("search-lang") ?? "en",
       redirects: !args.has("no-redirects"),
       uiLang: parseUiLang(args.value("ui")),
@@ -45,8 +46,44 @@ function report(a: Analysis): string {
     `topics: ${a.params.topics.join("; ")}   editions: ${a.params.langs.join(", ")}`,
   ];
   for (const s of a.series) lines.push(``, ...seriesLines(s, a));
+  lines.push(...rankingLines(a), ...editionLines(a));
   if (a.notes.length) lines.push(``, `notes`, ...a.notes.map((n) => `  - ${n}`));
+  lines.push(``, `verify`, ...Object.entries(a.verify).map(([k, v]) => `  ${k}: ${v}`));
   return lines.join("\n");
+}
+
+function rankingLines(a: Analysis): string[] {
+  if (!a.ranking.length) return [];
+  const label = (id: string) => a.series.find((s) => s.id === id)?.label ?? id;
+  return [
+    ``,
+    `ranking (growth uses the pessimistic end of the interval)`,
+    ...a.ranking.map(
+      (r) =>
+        `  ${r.rank}. ${label(r.id).padEnd(28)} score ${r.score.toFixed(2)}` +
+        `  (growth ${pct(r.inputs.conservativeGrowth)}, ${int(r.inputs.avgMonthly)} views/month,` +
+        ` ${r.inputs.perMillion.toFixed(1)} per million)`,
+    ),
+  ];
+}
+
+function editionLines(a: Analysis): string[] {
+  const lines: string[] = [``, `editions`];
+  for (const e of Object.values(a.editions)) {
+    const devices = e.uniqueDevices ? `${int(e.uniqueDevices)} devices/month` : "devices n/a";
+    const top = e.topCountries
+      .slice(0, 3)
+      .map((c) => `${c.country} ${(c.share * 100).toFixed(0)}%`)
+      .join(", ");
+    lines.push(`  ${e.project}: ${pct(e.growth)} year over year, ${devices}`);
+    if (top) lines.push(`    readers: ${top}`);
+    if (e.countriesHidden.length) {
+      lines.push(
+        `    incomplete: ${e.countriesHidden.join(", ")} hidden by Wikimedia privacy rules`,
+      );
+    }
+  }
+  return lines;
 }
 
 function seriesLines(s: SeriesRecord, a: Analysis): string[] {

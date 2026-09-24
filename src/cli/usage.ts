@@ -14,6 +14,7 @@ Usage: ${s.launcher} <command> [options]
     --langs <codes>     Comma-separated Wikipedia editions, default uk.
     --months <n>        Months shown, default 24.
     --window <n>        Months compared with a year earlier, 3-12, default 12.
+    --weights <spec>    Ranking weights, e.g. growth=0.5,volume=0.3,share=0.2.
     --search-lang <c>   Language of free-text topics, default en.
     --no-redirects      Skip the redirect check (one request less per article).
     --ui <en|uk>        Language of labels, default en.

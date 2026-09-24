@@ -1,5 +1,8 @@
+import type { RankRow } from "../domain/ranking/rank-series.ts";
+import type { Weights } from "../domain/ranking/weights.ts";
 import type { SeriesResult } from "../domain/trend/model.ts";
 import type { Windows } from "../domain/trend/windows.ts";
+import type { CountryShare } from "./wiki-types.ts";
 
 export interface ArticleUse {
   qid?: string;
@@ -20,6 +23,19 @@ export interface TopicReport {
   missing: Record<string, string[]>;
 }
 
+export interface EditionContext {
+  code: string;
+  project: string;
+  monthly: number[]; // human views of the whole edition, aligned with windows.months
+  totalRecent: number;
+  totalBaseline: number;
+  growth: number | null;
+  uniqueDevices: number | null; // monthly average over the recent window
+  topCountries: CountryShare[];
+  countriesMonth: string;
+  countriesHidden: string[]; // main countries absent from the list (Wikimedia privacy protection)
+}
+
 export type SeriesRecord = Omit<SeriesResult, "daily"> & {
   label: string;
   daily: { views: number[]; median: number[]; spikeIdx: number[] };
@@ -32,6 +48,7 @@ export interface AnalysisParams {
   window: number;
   searchLang: string;
   redirects: boolean;
+  weights: Weights;
 }
 
 export interface Analysis {
@@ -43,7 +60,10 @@ export interface Analysis {
   windows: Windows;
   notes: string[];
   topics: TopicReport[];
+  editions: Record<string, EditionContext>;
   series: SeriesRecord[];
+  ranking: RankRow[];
+  verify: Record<string, string>;
 }
 
 export function toSeriesRecord(result: SeriesResult, label: string): SeriesRecord {

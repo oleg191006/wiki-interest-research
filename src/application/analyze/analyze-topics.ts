@@ -2,13 +2,21 @@ import { eachDay, lastCompleteMonth } from "../../domain/calendar.ts";
 import type { Clock } from "../../domain/clock.ts";
 import { InputError } from "../../domain/errors.ts";
 import type { UiLang } from "../../domain/languages/display-names.ts";
-import { parseLangs } from "../../domain/languages/language.ts";
+import { parseLangs, type Lang } from "../../domain/languages/language.ts";
+import { rankSeries } from "../../domain/ranking/rank-series.ts";
+import { parseWeights } from "../../domain/ranking/weights.ts";
 import { analyzeSeries } from "../../domain/trend/analyze-series.ts";
-import { makeWindows } from "../../domain/trend/windows.ts";
-import { toSeriesRecord, type Analysis } from "../analysis-model.ts";
+import { makeWindows, type Windows } from "../../domain/trend/windows.ts";
+import {
+  toSeriesRecord,
+  type Analysis,
+  type EditionContext,
+  type TopicReport,
+} from "../analysis-model.ts";
 import type { ArticleDirectory, EntityCatalog, Log, PageviewSource } from "../ports.ts";
 import { seriesLabel } from "../series-label.ts";
 import { ArticleResolver, missingArticleNotes } from "./article-resolver.ts";
+import { editionContext } from "./edition-context.ts";
 import { assembleSeries } from "./series-assembler.ts";
 import { TopicResolver } from "./topic-resolver.ts";
 import { parseTopic } from "./topic-spec.ts";
@@ -22,6 +30,7 @@ export interface AnalyzeRequest {
   langs: string;
   months: number;
   window: number;
+  weights?: string;
   searchLang: string;
   redirects: boolean;
   uiLang: UiLang;
@@ -41,6 +50,7 @@ export class AnalyzeTopics {
   private readonly topicResolver: TopicResolver;
   private readonly articleResolver: ArticleResolver;
   private readonly trafficLoader: TrafficLoader;
+  private readonly pageviews: PageviewSource;
   private readonly clock: Clock;
   private readonly version: string;
   private readonly log: Log;
@@ -49,6 +59,7 @@ export class AnalyzeTopics {
     this.topicResolver = new TopicResolver(deps.catalog);
     this.articleResolver = new ArticleResolver(deps.directory);
     this.trafficLoader = new TrafficLoader(deps.pageviews, deps.directory);
+    this.pageviews = deps.pageviews;
     this.clock = deps.clock;
     this.version = deps.version;
     this.log = deps.log;
@@ -64,6 +75,7 @@ export class AnalyzeTopics {
     }
     const specs = req.topics.map(parseTopic);
     assertSeriesLimit(specs.length, langs.length);
+    const weights = parseWeights(req.weights);
 
     const resolved = await this.topicResolver.resolve(specs, langs, req.searchLang, req.uiLang);
     this.log(
@@ -76,20 +88,25 @@ export class AnalyzeTopics {
       req.uiLang,
     );
 
-    const w = makeWindows(lastCompleteMonth(this.clock.today()), req.months, req.window);
+    const endMonth = lastCompleteMonth(this.clock.today());
+    const w = makeWindows(endMonth, req.months, req.window);
     const days = eachDay(w.start, w.end);
     const articles = uniqueArticles(topics, langs);
     this.log(
       `Fetching daily views ${w.start} → ${w.end}: ${articles.size} article(s), ` +
         `${langs.length} edition(s). Cached data is reused.`,
     );
-    const traffic = await this.trafficLoader.load(langs, articles, w, req.redirects);
+    const traffic = await this.trafficLoader.load(langs, articles, w, endMonth, req.redirects);
 
     const results = assembleSeries(topics, langs, traffic, days).map((input) =>
       analyzeSeries(input, w),
     );
     const multiTopic = topics.length > 1;
     const multiLang = langs.length > 1;
+    const editions: Record<string, EditionContext> = {};
+    for (const lang of langs) {
+      editions[lang.code] = editionContext(lang, traffic.edition(lang.code), w, days, endMonth);
+    }
 
     return {
       tool: TOOL_NAME,
@@ -103,14 +120,34 @@ export class AnalyzeTopics {
         window: w.window,
         searchLang: req.searchLang,
         redirects: req.redirects,
+        weights,
       },
       windows: w,
       notes: [...warnings, ...resolved.notes, ...articleNotes, ...missingArticleNotes(topics)],
       topics,
+      editions,
       series: results.map((r) =>
         toSeriesRecord(r, seriesLabel(r.topic, r.lang, multiTopic, multiLang, req.uiLang)),
       ),
+      ranking: rankSeries(results, weights),
+      verify: this.verificationLinks(topics, langs, w),
     };
+  }
+
+  private verificationLinks(
+    topics: TopicReport[],
+    langs: Lang[],
+    w: Windows,
+  ): Record<string, string> {
+    const verify: Record<string, string> = {};
+    for (const lang of langs) {
+      const titles = topics
+        .flatMap((tr) => tr.articles[lang.code].map((a) => a.title))
+        .slice(0, 10);
+      if (titles.length)
+        verify[lang.code] = this.pageviews.verificationUrl(lang, titles, w.start, w.end);
+    }
+    return verify;
   }
 }
 

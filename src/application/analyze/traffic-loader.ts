@@ -2,10 +2,13 @@ import type { Lang } from "../../domain/languages/language.ts";
 import type { Windows } from "../../domain/trend/windows.ts";
 import type { TopicReport } from "../analysis-model.ts";
 import type { ArticleDirectory, PageviewSource } from "../ports.ts";
+import type { CountryShare } from "../wiki-types.ts";
 
 export interface EditionTraffic {
   all: number[];
   desktop: number[];
+  devices: Record<string, number>; // monthly unique devices of the edition
+  countries: CountryShare[]; // where its readers are, one month
 }
 
 export interface ArticleTraffic {
@@ -64,6 +67,7 @@ export class TrafficLoader {
     langs: Lang[],
     articles: Map<string, { lang: Lang; title: string }>,
     w: Windows,
+    endMonth: string,
     withRedirects: boolean,
   ): Promise<Traffic> {
     const editions = new Map<string, EditionTraffic>();
@@ -71,11 +75,13 @@ export class TrafficLoader {
     await Promise.all([
       Promise.all(
         langs.map(async (lang) => {
-          const [all, desktop] = await Promise.all([
+          const [all, desktop, devices, countries] = await Promise.all([
             this.pageviews.editionDaily(lang, "all-access", w.start, w.end),
             this.pageviews.editionDaily(lang, "desktop", w.start, w.end),
+            this.pageviews.uniqueDevices(lang, w.recentMonths[0], endMonth).catch(() => ({})),
+            this.pageviews.topCountries(lang, endMonth).catch(() => []),
           ]);
-          editions.set(lang.code, { all, desktop });
+          editions.set(lang.code, { all, desktop, devices, countries });
         }),
       ),
       Promise.all(
