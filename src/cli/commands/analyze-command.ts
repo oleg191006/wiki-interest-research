@@ -7,6 +7,7 @@ import { normalizeLang } from "../../domain/languages/language.ts";
 import type { RequestStats } from "../../infrastructure/http/fetch-transport.ts";
 import type { ArtifactWriter } from "../../presentation/export/artifact-writer.ts";
 import { slug } from "../../presentation/format.ts";
+import { Translator } from "../../presentation/i18n/translator.ts";
 import { quoteArg } from "../../presentation/text/command-line.ts";
 import type { SummaryView } from "../../presentation/text/summary-view.ts";
 import type { ParsedArgs } from "../args.ts";
@@ -43,6 +44,7 @@ export class AnalyzeCommand implements Command {
   async run(args: ParsedArgs): Promise<number> {
     const { useCase, store, artifacts, summary, stats, output } = this.deps;
     const started = Date.now();
+    const ui = parseUiLang(args.value("ui-lang"));
     const analysis = await useCase.execute({
       topics: [...args.values("topic"), ...args.positional.filter((p) => p.includes("="))],
       langs: args.values("langs").join(","),
@@ -51,7 +53,7 @@ export class AnalyzeCommand implements Command {
       weights: args.value("weights"),
       searchLang: normalizeLang(args.value("search-lang") ?? "en"),
       redirects: !args.has("no-redirects"),
-      uiLang: parseUiLang(args.value("ui-lang")),
+      uiLang: ui,
       command: `analyze ${args.argv.slice(1).map(quoteArg).join(" ")}`,
     });
 
@@ -60,6 +62,7 @@ export class AnalyzeCommand implements Command {
     );
     store.save(outDir, analysis);
     artifacts.writeData(outDir, analysis);
+    artifacts.writeCharts(outDir, analysis, new Translator(ui));
     const markdown = summary.render(analysis, outDir);
     artifacts.writeSummary(outDir, markdown);
 
