@@ -1,19 +1,9 @@
 import { eachDay, lastCompleteMonth } from "../../domain/calendar.ts";
 import type { Clock } from "../../domain/clock.ts";
 import { InputError } from "../../domain/errors.ts";
-import {
-  compareYearOverYear,
-  type ComparedPeriods,
-  type YearOverYear,
-} from "../../domain/trend/growth.ts";
-import { DEFAULT_TRUST_CHECKS, runTrustChecks } from "../../domain/trend/checks/index.ts";
-import { MonthIndex } from "../../domain/trend/month-index.ts";
-import type { Flag, SeriesInput, Verdict } from "../../domain/trend/model.ts";
-import { periodStats } from "../../domain/trend/period.ts";
-import { SpikeDetection } from "../../domain/trend/spikes.ts";
-import { classify } from "../../domain/trend/verdict.ts";
-import type { Windows } from "../../domain/trend/windows.ts";
-import { makeWindows } from "../../domain/trend/windows.ts";
+import { analyzeSeries } from "../../domain/trend/analyze-series.ts";
+import type { Flag, SeriesInput, SeriesResult } from "../../domain/trend/model.ts";
+import { makeWindows, type Windows } from "../../domain/trend/windows.ts";
 import type { PageviewsApi } from "../../infrastructure/wikimedia/pageviews-api.ts";
 import type { ParsedArgs } from "../args.ts";
 import type { Command, Output } from "../command.ts";
@@ -24,21 +14,9 @@ export interface AnalyzeDeps {
   output: Output;
 }
 
-/** Everything the draft text report needs. */
-interface Analysis {
-  series: SeriesInput;
-  project: string;
-  windows: Windows;
-  periods: ComparedPeriods;
-  yoy: YearOverYear;
-  spikes: SpikeDetection;
-  verdict: Verdict;
-  flags: Flag[];
-}
-
 /**
  * Draft version: one article, one language, plain text. Topic resolution through Wikidata,
- * several languages and the report arrive on day 3.
+ * several languages and the shareable report arrive on day 3.
  */
 export class AnalyzeCommand implements Command {
   readonly name = "analyze";
@@ -64,10 +42,9 @@ export class AnalyzeCommand implements Command {
       args.positiveInt("months", 24),
       args.positiveInt("window", 12),
     );
-
-    output.log(`Loading ${title} (${project}) for ${windows.start}..${windows.end}`);
-    const days = eachDay(windows.start, windows.end);
     const { start, end } = windows;
+
+    output.log(`Loading ${title} (${project}) for ${start}..${end}`);
     // Desktop series are loaded too: a topic whose desktop share jumps while the edition's does
     // not is the main sign of automated traffic.
     const [views, desktop, projViews, projDesktop] = await Promise.all([
@@ -81,72 +58,83 @@ export class AnalyzeCommand implements Command {
       id: `${lang}:${title}`,
       topic: title,
       lang,
-      days,
+      days: eachDay(start, end),
       views,
       desktop,
       projViews,
       projDesktop,
     };
-    const index = new MonthIndex(days);
-    const recentPositions = index.positionsOf(windows.recentMonths);
-    const baselinePositions = index.positionsOf(windows.baselineMonths);
-    const periods: ComparedPeriods = {
-      recent: periodStats(recentPositions, series),
-      baseline: periodStats(baselinePositions, series),
-      recentPositions,
-      baselinePositions,
-    };
 
-    const yoy = compareYearOverYear(series, windows, index, periods);
-    const spikes = new SpikeDetection(views);
-    const verdict = classify(yoy.growth, yoy.ci);
-    const { flags } = runTrustChecks(
-      {
-        input: series,
-        windows,
-        verdict,
-        periods,
-        yoy,
-        spikes,
-        topSpikes: spikes.top(series),
-        growthDespiked: spikes.despikedGrowth(recentPositions, baselinePositions),
-        spikeShareRecent: spikes.excessShare(recentPositions, periods.recent.total),
-        monthly: windows.months.map((m) => index.total(views, m)),
-      },
-      DEFAULT_TRUST_CHECKS,
-    );
-
-    output.print(report({ series, project, windows, periods, yoy, spikes, verdict, flags }));
+    output.print(report(analyzeSeries(series, windows), project, windows));
     return 0;
   }
 }
 
-function report(a: Analysis): string {
-  const { periods: p, yoy, windows } = a;
+function report(r: SeriesResult, project: string, w: Windows): string {
   const range = (m: string[]) => `${m[0]}..${m.at(-1)}`;
   return [
-    `${a.series.topic} — ${a.project}`,
-    `  recent   ${range(windows.recentMonths)}: ${int(p.recent.total)} views,` +
-      ` median day ${int(p.recent.medianDaily)}`,
-    `  baseline ${range(windows.baselineMonths)}: ${int(p.baseline.total)} views,` +
-      ` median day ${int(p.baseline.medianDaily)}`,
+    `${r.topic} — ${project}`,
+    `  recent   ${range(w.recentMonths)}: ${int(r.recent.total)} views,` +
+      ` median day ${int(r.recent.medianDaily)}`,
+    `  baseline ${range(w.baselineMonths)}: ${int(r.baseline.total)} views,` +
+      ` median day ${int(r.baseline.medianDaily)}`,
     ``,
-    `  verdict          ${a.verdict}`,
+    `  verdict          ${r.verdict}, ${r.confidence} confidence`,
     ``,
-    `  growth           ${pct(yoy.growth)}  ${range95(yoy.ci)}`,
-    `  edition growth   ${pct(yoy.projectGrowth)}`,
-    `  normalized       ${pct(yoy.normalizedGrowth)}  ${range95(yoy.normCi)}` +
-      `  (topic vs the whole edition)`,
-    `  median day       ${pct(yoy.growthMedianDay)}`,
-    `  months up        ${yoy.monthsUp}/${yoy.monthsCompared}` +
-      `  (sign test p = ${yoy.signP.toFixed(3)})`,
-    `  desktop share    ${share(p.baseline.desktopShare)} -> ${share(p.recent.desktopShare)}` +
-      `  (edition ${share(p.baseline.projectDesktopShare)} -> ${share(p.recent.projectDesktopShare)})`,
+    `  growth           ${pct(r.growth)}  ${range95(r.ci)}`,
+    `  edition growth   ${pct(r.projectGrowth)}`,
+    `  normalized       ${pct(r.normalizedGrowth)}  ${range95(r.normCi)}` +
+      `  (${r.normVerdict} vs the whole edition)`,
+    `  median day       ${pct(r.growthMedianDay)}`,
+    `  months up        ${r.monthsUp}/${r.monthsCompared}` +
+      `  (sign test p = ${r.signP.toFixed(3)})`,
+    `  desktop share    ${share(r.baseline.desktopShare)} -> ${share(r.recent.desktopShare)}` +
+      `  (edition ${share(r.baseline.projectDesktopShare)} -> ${share(r.recent.projectDesktopShare)})`,
     ``,
-    ...spikeLines(a),
+    ...spikeLines(r),
+    ...yearLines(r),
+    ...seasonLines(r),
     ``,
-    ...flagLines(a.flags),
+    ...flagLines(r.flags),
   ].join("\n");
+}
+
+/** What is left of the growth once viral days are capped, and which days those were. */
+function spikeLines(r: SeriesResult): string[] {
+  const lines = [
+    `  growth despiked  ${pct(r.growthDespiked)}  (spike days capped at their threshold)`,
+    `  spikes recent    ${r.spikes.length} found, ${pct(r.spikeShareRecent)} of the period's views`,
+  ];
+  for (const spike of r.spikes.slice(0, 3)) {
+    lines.push(
+      `    ${spike.date}: ${int(spike.views)} views, ${spike.ratio.toFixed(1)}x the local median`,
+    );
+  }
+  return lines;
+}
+
+/** Year-by-year totals: the long view behind a single year-over-year number. */
+function yearLines(r: SeriesResult): string[] {
+  if (!r.yearly) return [];
+  return [
+    ``,
+    `  year by year`,
+    ...r.yearly.map(
+      (y) => `    ${y.from}..${y.to}: ${int(y.total).padStart(9)} views  ${pct(y.growth)}`,
+    ),
+  ];
+}
+
+/** The repeating yearly shape, when there is enough history to see one. */
+function seasonLines(r: SeriesResult): string[] {
+  if (!r.seasonality) return [];
+  const list = (xs: Array<{ month: number; index: number }>) =>
+    xs.map((x) => `${MONTHS[x.month - 1]} ${pct(x.index - 1)}`).join(", ") || "none";
+  return [
+    ``,
+    `  seasonal peaks   ${list(r.seasonality.peaks)}`,
+    `  seasonal troughs ${list(r.seasonality.troughs)}`,
+  ];
 }
 
 /** Trust checks that fired, with the numbers that made them fire. */
@@ -163,24 +151,7 @@ function flagLines(flags: Flag[]): string[] {
   ];
 }
 
-/** What is left of the growth once viral days are capped, and which days those were. */
-function spikeLines(a: Analysis): string[] {
-  const { spikes, periods: p } = a;
-  const despiked = spikes.despikedGrowth(p.recentPositions, p.baselinePositions);
-  const share = spikes.excessShare(p.recentPositions, p.recent.total);
-  const days = spikes.spikeDays(p.recentPositions).length;
-  const lines = [
-    `  growth despiked  ${pct(despiked)}  (spike days capped at their threshold)`,
-    `  spikes recent    ${days} days, ${pct(share)} of the period's views`,
-  ];
-  for (const spike of spikes.top(a.series, 3)) {
-    lines.push(
-      `    ${spike.date}: ${int(spike.views)} views, ${spike.ratio.toFixed(1)}x the local median`,
-    );
-  }
-  return lines;
-}
-
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const int = (n: number) => Math.round(n).toLocaleString("en-US");
 const share = (v: number) => `${(v * 100).toFixed(0)}%`;
 const pct = (v: number | null) =>
