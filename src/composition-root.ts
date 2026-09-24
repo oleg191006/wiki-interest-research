@@ -7,6 +7,9 @@ import { FindCommand } from "./cli/commands/find-command.ts";
 import { DoctorCommand } from "./cli/commands/doctor-command.ts";
 import { usage } from "./cli/usage.ts";
 import { FixedClock, SystemClock, type Clock } from "./domain/clock.ts";
+import { JsonAnalysisStore } from "./infrastructure/storage/json-analysis-store.ts";
+import { ArtifactWriter } from "./presentation/export/artifact-writer.ts";
+import { SummaryView } from "./presentation/text/summary-view.ts";
 import { FileCache } from "./infrastructure/cache/file-cache.ts";
 import { CachedJsonClient, type CacheMode } from "./infrastructure/http/cached-json-client.ts";
 import { FetchTransport, RequestStats } from "./infrastructure/http/fetch-transport.ts";
@@ -65,7 +68,15 @@ function buildCommands(
 
   return [
     new FindCommand({ catalog, directory, launcher: settings.launcher, output }),
-    new AnalyzeCommand({ useCase: analyze, launcher: settings.launcher, output }),
+    new AnalyzeCommand({
+      useCase: analyze,
+      store: new JsonAnalysisStore(),
+      artifacts: new ArtifactWriter(),
+      summary: new SummaryView(settings.launcher),
+      stats,
+      outputRoot: settings.outputRoot,
+      output,
+    }),
     new DoctorCommand({ settings, cache, pageviews, clock, output }),
     new CacheCommand(cache, output),
   ];

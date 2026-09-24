@@ -11,13 +11,14 @@ Usage: ${s.launcher} <command> [options]
 
   analyze             Year-over-year change of one or more topics.
     --topic <spec>      Repeatable. "Name=Q333,Q544", "pl:Article title" or free text.
-    --langs <codes>     Comma-separated Wikipedia editions, default uk.
+    --langs <codes>     Comma-separated Wikipedia editions, e.g. uk,pl,cs.
+    --out <dir>         Output folder, default wiki-interest-output/<topics>_<langs>.
     --months <n>        Months shown, default 24.
     --window <n>        Months compared with a year earlier, 3-12, default 12.
     --weights <spec>    Ranking weights, e.g. growth=0.5,volume=0.3,share=0.2.
     --search-lang <c>   Language of free-text topics, default en.
     --no-redirects      Skip the redirect check (one request less per article).
-    --ui <en|uk>        Language of labels, default en.
+    --ui-lang <en|uk>   Language of labels, default en.
 
   doctor              Check Node, dependencies, the cache folder and the Wikimedia connection.
   cache [--clear]     Show the size of the download cache, or empty it.

@@ -1,122 +1,73 @@
-import type { Analysis, SeriesRecord } from "../../application/analysis-model.ts";
-import { AnalyzeTopics } from "../../application/analyze/analyze-topics.ts";
+import { join, resolve } from "node:path";
+import type { Analysis } from "../../application/analysis-model.ts";
+import type { AnalyzeTopics } from "../../application/analyze/analyze-topics.ts";
+import type { AnalysisStore } from "../../application/ports.ts";
 import { parseUiLang } from "../../domain/languages/display-names.ts";
-import type { Flag } from "../../domain/trend/model.ts";
+import { normalizeLang } from "../../domain/languages/language.ts";
+import type { RequestStats } from "../../infrastructure/http/fetch-transport.ts";
+import type { ArtifactWriter } from "../../presentation/export/artifact-writer.ts";
+import { slug } from "../../presentation/format.ts";
+import { quoteArg } from "../../presentation/text/command-line.ts";
+import type { SummaryView } from "../../presentation/text/summary-view.ts";
 import type { ParsedArgs } from "../args.ts";
 import type { Command, Output } from "../command.ts";
 
-export interface AnalyzeDeps {
+export interface AnalyzeCommandDeps {
   useCase: AnalyzeTopics;
-  launcher: string;
+  store: AnalysisStore;
+  artifacts: ArtifactWriter;
+  summary: SummaryView;
+  stats: RequestStats;
+  outputRoot: string;
   output: Output;
 }
 
-/**
- * analyze: one or more topics across one or more editions. Prints a plain-text summary;
- * the shareable report (charts, PDF) is built by the report command.
- */
+/** Default run folder: <topics>_<langs>_<months>m, so reruns of the same question land in one place. */
+export function defaultRunFolder(a: Analysis): string {
+  const topics = a.topics
+    .map((tr) => slug(tr.name))
+    .join("+")
+    .slice(0, 60);
+  return `${topics}_${a.params.langs.join("-")}_${a.windows.months.length}m`;
+}
+
+/** analyze: run the analysis, save analysis.json + CSV, print summary.md for the agent. */
 export class AnalyzeCommand implements Command {
   readonly name = "analyze";
-  private readonly deps: AnalyzeDeps;
+  private readonly deps: AnalyzeCommandDeps;
 
-  constructor(deps: AnalyzeDeps) {
+  constructor(deps: AnalyzeCommandDeps) {
     this.deps = deps;
   }
 
   async run(args: ParsedArgs): Promise<number> {
-    const analysis = await this.deps.useCase.execute({
-      topics: args.values("topic"),
-      langs: args.value("langs") ?? "uk",
+    const { useCase, store, artifacts, summary, stats, output } = this.deps;
+    const started = Date.now();
+    const analysis = await useCase.execute({
+      topics: [...args.values("topic"), ...args.positional.filter((p) => p.includes("="))],
+      langs: args.values("langs").join(","),
       months: args.positiveInt("months", 24),
       window: args.positiveInt("window", 12),
       weights: args.value("weights"),
-      searchLang: args.value("search-lang") ?? "en",
+      searchLang: normalizeLang(args.value("search-lang") ?? "en"),
       redirects: !args.has("no-redirects"),
-      uiLang: parseUiLang(args.value("ui")),
-      command: `${this.deps.launcher} ${args.argv.join(" ")}`,
+      uiLang: parseUiLang(args.value("ui-lang")),
+      command: `analyze ${args.argv.slice(1).map(quoteArg).join(" ")}`,
     });
-    this.deps.output.print(report(analysis));
+
+    const outDir = resolve(
+      args.value("out") ?? join(this.deps.outputRoot, defaultRunFolder(analysis)),
+    );
+    store.save(outDir, analysis);
+    artifacts.writeData(outDir, analysis);
+    const markdown = summary.render(analysis, outDir);
+    artifacts.writeSummary(outDir, markdown);
+
+    output.print(markdown);
+    output.log(
+      `Done in ${((Date.now() - started) / 1000).toFixed(1)}s ` +
+        `(${stats.requests} requests, ${stats.cacheHits} cache hits).`,
+    );
     return 0;
   }
 }
-
-function report(a: Analysis): string {
-  const lines = [
-    `${a.tool} ${a.version} — ${a.windows.start}..${a.windows.end}`,
-    `topics: ${a.params.topics.join("; ")}   editions: ${a.params.langs.join(", ")}`,
-  ];
-  for (const s of a.series) lines.push(``, ...seriesLines(s, a));
-  lines.push(...rankingLines(a), ...editionLines(a));
-  if (a.notes.length) lines.push(``, `notes`, ...a.notes.map((n) => `  - ${n}`));
-  lines.push(``, `verify`, ...Object.entries(a.verify).map(([k, v]) => `  ${k}: ${v}`));
-  return lines.join("\n");
-}
-
-function rankingLines(a: Analysis): string[] {
-  if (!a.ranking.length) return [];
-  const label = (id: string) => a.series.find((s) => s.id === id)?.label ?? id;
-  return [
-    ``,
-    `ranking (growth uses the pessimistic end of the interval)`,
-    ...a.ranking.map(
-      (r) =>
-        `  ${r.rank}. ${label(r.id).padEnd(28)} score ${r.score.toFixed(2)}` +
-        `  (growth ${pct(r.inputs.conservativeGrowth)}, ${int(r.inputs.avgMonthly)} views/month,` +
-        ` ${r.inputs.perMillion.toFixed(1)} per million)`,
-    ),
-  ];
-}
-
-function editionLines(a: Analysis): string[] {
-  const lines: string[] = [``, `editions`];
-  for (const e of Object.values(a.editions)) {
-    const devices = e.uniqueDevices ? `${int(e.uniqueDevices)} devices/month` : "devices n/a";
-    const top = e.topCountries
-      .slice(0, 3)
-      .map((c) => `${c.country} ${(c.share * 100).toFixed(0)}%`)
-      .join(", ");
-    lines.push(`  ${e.project}: ${pct(e.growth)} year over year, ${devices}`);
-    if (top) lines.push(`    readers: ${top}`);
-    if (e.countriesHidden.length) {
-      lines.push(
-        `    incomplete: ${e.countriesHidden.join(", ")} hidden by Wikimedia privacy rules`,
-      );
-    }
-  }
-  return lines;
-}
-
-function seriesLines(s: SeriesRecord, a: Analysis): string[] {
-  const titles = a.topics
-    .find((t) => t.name === s.topic)
-    ?.articles[s.lang]?.map((x) => x.title)
-    .join(", ");
-  return [
-    `${s.label}  —  ${s.verdict}, ${s.confidence} confidence`,
-    `  articles         ${titles ?? "—"}`,
-    `  recent           ${int(s.recent.total)} views, median day ${int(s.recent.medianDaily)}`,
-    `  baseline         ${int(s.baseline.total)} views, median day ${int(s.baseline.medianDaily)}`,
-    `  growth           ${pct(s.growth)}  ${range95(s.ci)}`,
-    `  normalized       ${pct(s.normalizedGrowth)}  ${range95(s.normCi)}` +
-      `  (edition ${pct(s.projectGrowth)})`,
-    `  despiked         ${pct(s.growthDespiked)}`,
-    `  months up        ${s.monthsUp}/${s.monthsCompared}  (sign test p = ${s.signP.toFixed(3)})`,
-    ...flagLines(s.flags),
-  ];
-}
-
-function flagLines(flags: Flag[]): string[] {
-  if (!flags.length) return ["  trust            no warnings"];
-  return flags.map((f) => {
-    const params = Object.entries(f.params)
-      .map(([k, v]) => `${k}=${v}`)
-      .join(", ");
-    return `  ${f.severity === "warn" ? "warn" : "note"}             ${f.code}${params ? ` (${params})` : ""}`;
-  });
-}
-
-const int = (n: number) => Math.round(n).toLocaleString("en-US");
-const pct = (v: number | null) =>
-  v === null ? "n/a" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
-const range95 = (ci: [number, number] | null) =>
-  ci === null ? "" : `[95%: ${pct(ci[0])} … ${pct(ci[1])}]`;
