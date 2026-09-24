@@ -67,9 +67,14 @@ export class AnalyzeCommand implements Command {
 
     output.log(`Loading ${title} (${project}) for ${windows.start}..${windows.end}`);
     const days = eachDay(windows.start, windows.end);
-    const [views, projViews] = await Promise.all([
-      pageviews.articleDaily(project, title, "all-access", windows.start, windows.end),
-      pageviews.editionDaily(project, "all-access", windows.start, windows.end),
+    const { start, end } = windows;
+    // Desktop series are loaded too: a topic whose desktop share jumps while the edition's does
+    // not is the main sign of automated traffic.
+    const [views, desktop, projViews, projDesktop] = await Promise.all([
+      pageviews.articleDaily(project, title, "all-access", start, end),
+      pageviews.articleDaily(project, title, "desktop", start, end),
+      pageviews.editionDaily(project, "all-access", start, end),
+      pageviews.editionDaily(project, "desktop", start, end),
     ]);
 
     const series: SeriesInput = {
@@ -78,7 +83,9 @@ export class AnalyzeCommand implements Command {
       lang,
       days,
       views,
+      desktop,
       projViews,
+      projDesktop,
     };
     const index = new MonthIndex(days);
     const recentPositions = index.positionsOf(windows.recentMonths);
@@ -104,6 +111,7 @@ export class AnalyzeCommand implements Command {
         topSpikes: spikes.top(series),
         growthDespiked: spikes.despikedGrowth(recentPositions, baselinePositions),
         spikeShareRecent: spikes.excessShare(recentPositions, periods.recent.total),
+        monthly: windows.months.map((m) => index.total(views, m)),
       },
       DEFAULT_TRUST_CHECKS,
     );
@@ -132,6 +140,8 @@ function report(a: Analysis): string {
     `  median day       ${pct(yoy.growthMedianDay)}`,
     `  months up        ${yoy.monthsUp}/${yoy.monthsCompared}` +
       `  (sign test p = ${yoy.signP.toFixed(3)})`,
+    `  desktop share    ${share(p.baseline.desktopShare)} -> ${share(p.recent.desktopShare)}` +
+      `  (edition ${share(p.baseline.projectDesktopShare)} -> ${share(p.recent.projectDesktopShare)})`,
     ``,
     ...spikeLines(a),
     ``,
@@ -172,6 +182,7 @@ function spikeLines(a: Analysis): string[] {
 }
 
 const int = (n: number) => Math.round(n).toLocaleString("en-US");
+const share = (v: number) => `${(v * 100).toFixed(0)}%`;
 const pct = (v: number | null) =>
   v === null ? "n/a" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
 const range95 = (ci: [number, number] | null) =>
