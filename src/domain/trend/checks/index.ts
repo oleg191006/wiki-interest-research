@@ -1,5 +1,13 @@
 import type { Flag } from "../model.ts";
-import { MonthConsistencyCheck, NoBaselineCheck, VolumeCheck } from "./reliability-checks.ts";
+import {
+  AutomatedTrafficCheck,
+  MonthConsistencyCheck,
+  NewArticleCheck,
+  NoBaselineCheck,
+  PlatformOppositeCheck,
+  SpikeDrivenCheck,
+  VolumeCheck,
+} from "./reliability-checks.ts";
 import type { CheckContext, TrustCheck } from "./trust-check.ts";
 
 export type { CheckContext, TrustCheck } from "./trust-check.ts";
@@ -8,6 +16,10 @@ export const DEFAULT_TRUST_CHECKS: readonly TrustCheck[] = [
   new NoBaselineCheck(),
   new VolumeCheck(),
   new MonthConsistencyCheck(),
+  new SpikeDrivenCheck(),
+  new PlatformOppositeCheck(),
+  new AutomatedTrafficCheck(),
+  new NewArticleCheck(),
 ];
 
 /** Run every check, returns the flags and the total confidence penalty. */

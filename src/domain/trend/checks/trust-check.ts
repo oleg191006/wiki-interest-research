@@ -14,6 +14,7 @@ export interface CheckContext {
   topSpikes: Spike[];
   growthDespiked: number | null;
   spikeShareRecent: number;
+  monthly: number[]; // monthly totals over windows.months
 }
 
 export interface Finding {
