@@ -1,3 +1,4 @@
+import type { ArticleDirectory } from "../../application/ports.ts";
 import type { PageInfo, RedirectStats, SearchResultPage } from "../../application/wiki-types.ts";
 import type { CachedJsonClient } from "../http/cached-json-client.ts";
 import { actionApiUrl, METADATA_TTL_MS, wikipediaApi } from "./endpoints.ts";
@@ -7,7 +8,7 @@ type PageViews = Record<string, number | null>;
 const total = (views: PageViews | undefined) =>
   Object.values(views ?? {}).reduce<number>((s, v) => s + (v ?? 0), 0);
 
-export class WikipediaApi {
+export class WikipediaApi implements ArticleDirectory {
   private readonly client: CachedJsonClient;
 
   constructor(client: CachedJsonClient) {

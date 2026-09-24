@@ -1,14 +1,13 @@
+import type { PageviewSource } from "../../application/ports.ts";
+import type { Access } from "../../application/wiki-types.ts";
 import { compactDate } from "../../domain/calendar.ts";
 import { InputError } from "../../domain/errors.ts";
 import type { Lang } from "../../domain/languages/language.ts";
 import { PAGEVIEWS_REST } from "./endpoints.ts";
 import type { IncrementalSeriesCache } from "./incremental-series-cache.ts";
 
-/** Which devices the views came from. */
-export type Access = "all-access" | "desktop" | "mobile-web" | "mobile-app";
-
 /** Wikimedia Pageviews REST API: human (agent=user) views only. */
-export class PageviewsApi {
+export class PageviewsApi implements PageviewSource {
   private readonly series: IncrementalSeriesCache;
 
   constructor(series: IncrementalSeriesCache) {

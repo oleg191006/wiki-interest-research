@@ -1,3 +1,5 @@
+export type Access = "all-access" | "desktop" | "mobile-web" | "mobile-app";
+
 export interface Entity {
   qid: string;
   labels: Record<string, string>;
@@ -9,17 +11,6 @@ export interface SearchHit {
   qid: string;
   label: string;
   description: string;
-}
-
-export function entityLabel(e: Entity | undefined, lang: string): string {
-  if (!e) return "";
-  return e.labels[lang] ?? e.labels.en ?? Object.values(e.labels)[0] ?? e.qid;
-}
-
-export function wikipediaCount(e: Entity): number {
-  return Object.keys(e.sitelinks).filter(
-    (k) => k.endsWith("wiki") && k !== "commonswiki" && k !== "specieswiki",
-  ).length;
 }
 
 export interface PageInfo {
@@ -45,4 +36,15 @@ export interface SearchResultPage {
   qid?: string;
   disambiguation: boolean;
   viewsPerDay?: number;
+}
+
+export function entityLabel(e: Entity | undefined, lang: string): string {
+  if (!e) return "";
+  return e.labels[lang] ?? e.labels.en ?? Object.values(e.labels)[0] ?? e.qid;
+}
+
+export function wikipediaCount(e: Entity): number {
+  return Object.keys(e.sitelinks).filter(
+    (k) => k.endsWith("wiki") && k !== "commonswiki" && k !== "specieswiki",
+  ).length;
 }

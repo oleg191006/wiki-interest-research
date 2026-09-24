@@ -1,3 +1,4 @@
+import type { EntityCatalog } from "../../application/ports.ts";
 import type { Entity, SearchHit } from "../../application/wiki-types.ts";
 import { SourceError } from "../../domain/errors.ts";
 import type { KeyValueStore } from "../cache/file-cache.ts";
@@ -8,7 +9,7 @@ const BATCH_SIZE = 50;
 
 type CachedEntity = Entity & { labelLangs: string[] };
 
-export class WikidataApi {
+export class WikidataApi implements EntityCatalog {
   private readonly client: CachedJsonClient;
   private readonly store: KeyValueStore;
 
