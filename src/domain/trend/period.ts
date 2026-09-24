@@ -12,5 +12,7 @@ export function periodStats(positions: number[], s: SeriesInput): PeriodStats {
     avgMonthly: total / months,
     medianDaily: median(pick(s.views)),
     perMillion: proj > 0 ? (total / proj) * 1e6 : 0,
+    desktopShare: total > 0 ? sum(pick(s.desktop)) / total : 0,
+    projectDesktopShare: proj > 0 ? sum(pick(s.projDesktop)) / proj : 0,
   };
 }
