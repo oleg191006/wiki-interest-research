@@ -1,6 +1,7 @@
 import { eachDay, lastCompleteMonth } from "../../domain/calendar.ts";
 import type { Clock } from "../../domain/clock.ts";
 import { InputError } from "../../domain/errors.ts";
+import { parseLangs } from "../../domain/languages/language.ts";
 import { analyzeSeries } from "../../domain/trend/analyze-series.ts";
 import type { Flag, SeriesInput, SeriesResult } from "../../domain/trend/model.ts";
 import { makeWindows, type Windows } from "../../domain/trend/windows.ts";
@@ -35,8 +36,9 @@ export class AnalyzeCommand implements Command {
         'Example: analyze --article "Астрономія" --lang uk',
       );
     }
-    const lang = (args.value("lang") ?? "uk").toLowerCase();
-    const project = `${lang}.wikipedia.org`;
+    const { langs, warnings } = parseLangs(args.value("lang") ?? "uk");
+    for (const w of warnings) output.log(w);
+    const lang = langs[0];
     const windows = makeWindows(
       lastCompleteMonth(clock.today()),
       args.positiveInt("months", 24),
@@ -44,20 +46,20 @@ export class AnalyzeCommand implements Command {
     );
     const { start, end } = windows;
 
-    output.log(`Loading ${title} (${project}) for ${start}..${end}`);
+    output.log(`Loading ${title} (${lang.project}) for ${start}..${end}`);
     // Desktop series are loaded too: a topic whose desktop share jumps while the edition's does
     // not is the main sign of automated traffic.
     const [views, desktop, projViews, projDesktop] = await Promise.all([
-      pageviews.articleDaily(project, title, "all-access", start, end),
-      pageviews.articleDaily(project, title, "desktop", start, end),
-      pageviews.editionDaily(project, "all-access", start, end),
-      pageviews.editionDaily(project, "desktop", start, end),
+      pageviews.articleDaily(lang, title, "all-access", start, end),
+      pageviews.articleDaily(lang, title, "desktop", start, end),
+      pageviews.editionDaily(lang, "all-access", start, end),
+      pageviews.editionDaily(lang, "desktop", start, end),
     ]);
 
     const series: SeriesInput = {
-      id: `${lang}:${title}`,
+      id: `${lang.code}:${title}`,
       topic: title,
-      lang,
+      lang: lang.code,
       days: eachDay(start, end),
       views,
       desktop,
@@ -65,7 +67,7 @@ export class AnalyzeCommand implements Command {
       projDesktop,
     };
 
-    output.print(report(analyzeSeries(series, windows), project, windows));
+    output.print(report(analyzeSeries(series, windows), lang.project, windows));
     return 0;
   }
 }

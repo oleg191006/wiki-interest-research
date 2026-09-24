@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { lastCompleteMonth } from "../../domain/calendar.ts";
 import type { Clock } from "../../domain/clock.ts";
 import { ExitCode } from "../../domain/errors.ts";
+import { toLang } from "../../domain/languages/language.ts";
 import type { FileCache } from "../../infrastructure/cache/file-cache.ts";
 import type { PageviewsApi } from "../../infrastructure/wikimedia/pageviews-api.ts";
 import type { Settings } from "../../settings.ts";
@@ -77,7 +78,7 @@ export class DoctorCommand implements Command {
     const month = lastCompleteMonth(this.deps.clock.today());
     try {
       const views = await this.deps.pageviews.editionDaily(
-        "en.wikipedia.org",
+        toLang("en"),
         "all-access",
         `${month}-01`,
         `${month}-01`,
