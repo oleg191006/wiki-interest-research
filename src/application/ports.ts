@@ -1,4 +1,5 @@
 import type { Lang } from "../domain/languages/language.ts";
+import type { Analysis } from "./analysis-model.ts";
 import type {
   Access,
   CountryShare,
@@ -34,4 +35,10 @@ export interface PageviewSource {
   uniqueDevices(lang: Lang, firstMonth: string, lastMonth: string): Promise<Record<string, number>>;
   topCountries(lang: Lang, month: string): Promise<CountryShare[]>;
   verificationUrl(lang: Lang, titles: string[], start: string, end: string): string;
+}
+
+/** Where analyze results are kept so report (a separate command) can read them. */
+export interface AnalysisStore {
+  save(runDir: string, analysis: Analysis): void;
+  load(runDir: string): Analysis;
 }
