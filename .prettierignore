@@ -3,3 +3,4 @@ package-lock.json
 wiki-interest-output/
 evals/runs/
 tests/fixtures/
+examples/*-summary.md
