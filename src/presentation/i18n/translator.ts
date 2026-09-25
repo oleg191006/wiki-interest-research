@@ -2,8 +2,11 @@ import { monthName } from "../../domain/calendar.ts";
 import type { UiLang } from "../../domain/languages/display-names.ts";
 import type { Confidence, Flag, Verdict } from "../../domain/trend/model.ts";
 import { EN, type MessageKey } from "./messages-en.ts";
+import { UK } from "./messages-uk.ts";
 
-const MESSAGES: Partial<Record<UiLang, Record<MessageKey, string>>> = { en: EN };
+// Typed both ways: a missing or unknown key in any language is a compile error, not a
+// "{placeholder}" noticed by a reader of the PDF.
+const MESSAGES: Record<UiLang, Record<MessageKey, string>> = { en: EN, uk: UK };
 
 const SIGNED_PARAMS = ["growth", "despiked", "project", "normalized", "low", "high"];
 
@@ -19,7 +22,7 @@ export class Translator {
   }
 
   t(key: MessageKey, params: Record<string, string | number> = {}): string {
-    const template = (MESSAGES[this.lang] ?? EN)[key];
+    const template = MESSAGES[this.lang][key];
     return template.replace(/\{(\w+)\}/g, (_, k: string) =>
       params[k] !== undefined ? String(params[k]) : `{${k}}`,
     );
