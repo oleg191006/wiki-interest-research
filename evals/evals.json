@@ -1,0 +1,77 @@
+{
+  "skill_name": "wiki-interest-research",
+  "notes": "Prompts are the case task's examples plus follow-ups and edge cases. Checks are programmatic (see grade.ts); 'expect' lists which checks apply to a case.",
+  "evals": [
+    {
+      "id": "fasting-pl-cs",
+      "prompt": "Порівняй зростання інтересу до інтервального голодування в польськомовній та чеськомовній Wikipedia за останні два роки.",
+      "expected_output": "Finds Q1666254, reports that Polish Wikipedia has no article (cannot be measured) instead of substituting silently, gives the Czech trend with confidence and caveats (very low volume).",
+      "expect": [
+        "skill_used",
+        "cli_analyze",
+        "no_custom_code",
+        "numbers_grounded",
+        "mentions_confidence",
+        "mentions_missing_pl"
+      ]
+    },
+    {
+      "id": "astronomy-uk-trust",
+      "prompt": "Ми думаємо додати курс з астрономії до освітнього застосунку. Чи зростає інтерес до цієї теми в україномовній Wikipedia, і наскільки цьому зростанню можна довіряти?",
+      "expected_output": "Uses a basket of central astronomy articles (or at least the main one), answers that interest is falling with the stated confidence, explains trust (months, CI, whole-edition decline), gives caveats and a next step.",
+      "expect": [
+        "skill_used",
+        "cli_analyze",
+        "no_custom_code",
+        "numbers_grounded",
+        "mentions_confidence",
+        "mentions_platform"
+      ]
+    },
+    {
+      "id": "english-learning-report",
+      "prompt": "Ми створюємо застосунок для вивчення мов. Порівняй інтерес до вивчення англійської в польській, турецькій, в'єтнамській та іспанській Вікіпедіях і підготуй короткий звіт: які аудиторії варто дослідити наступними й чому?",
+      "expected_output": "Picks articles that signal learning intent (e.g. IELTS/TOEFL or English as a second language), compares 4 editions with the ranking, notes that tr/vi country data is incomplete, produces a one-page PDF in Ukrainian.",
+      "expect": [
+        "skill_used",
+        "cli_analyze",
+        "no_custom_code",
+        "numbers_grounded",
+        "mentions_confidence",
+        "pdf_created"
+      ]
+    },
+    {
+      "id": "country-codes",
+      "prompt": "Is interest in the Python programming language growing on the UA and CZ Wikipedias? Short answer please.",
+      "expected_output": "Maps UA/CZ to uk/cs (directly or after the tool's hint), answers with verdict and confidence per language.",
+      "expect": [
+        "skill_used",
+        "cli_analyze",
+        "no_custom_code",
+        "numbers_grounded",
+        "mentions_confidence"
+      ]
+    },
+    {
+      "id": "follow-up-change",
+      "prompt": "Порівняй інтерес до інтервального голодування в чеській та словацькій Вікіпедіях за останні два роки.",
+      "follow_up": "Додай ще німецьку Вікіпедію, подивись на 3 роки і зроби PDF-звіт українською.",
+      "expected_output": "Second turn re-runs analyze with de added and --months 36 (cache makes it fast) and creates a PDF.",
+      "expect": [
+        "skill_used",
+        "cli_analyze",
+        "no_custom_code",
+        "numbers_grounded",
+        "rerun_with_changes",
+        "pdf_created"
+      ]
+    },
+    {
+      "id": "near-miss-no-trigger",
+      "prompt": "Напиши коротку функцію на TypeScript, яка отримує перший абзац статті Вікіпедії за її назвою через REST API. Лише код у відповіді, нічого не запускай.",
+      "expected_output": "Answers with code directly; the skill (pageview research) is not relevant and should not be loaded.",
+      "expect": ["skill_not_used"]
+    }
+  ]
+}
