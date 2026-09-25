@@ -16,6 +16,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "bottleneck": "^2.19.5",
     "dejavu-fonts-ttf": "^2.37.3",
     "pdfkit": "^0.20.2",
     "svg-to-pdfkit": "^0.1.8",

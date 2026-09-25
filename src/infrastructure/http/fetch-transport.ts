@@ -55,24 +55,23 @@ export class FetchTransport implements JsonTransport {
     }
   }
 
-  private async attempt(url: string): Promise<Attempt> {
-    await this.opts.limiter.acquire();
-    try {
-      this.opts.stats.requests++;
-      const response = await fetch(url, {
-        headers: { "User-Agent": this.opts.userAgent, Accept: "application/json" },
-        signal: AbortSignal.timeout(45_000),
-      });
-      return {
-        status: response.status,
-        retryAfter: response.headers.get("retry-after"),
-        body: await response.text(),
-      };
-    } catch (err) {
-      return { status: 0, body: "", retryAfter: null, networkError: err };
-    } finally {
-      this.opts.limiter.release();
-    }
+  private attempt(url: string): Promise<Attempt> {
+    return this.opts.limiter.run(async () => {
+      try {
+        this.opts.stats.requests++;
+        const response = await fetch(url, {
+          headers: { "User-Agent": this.opts.userAgent, Accept: "application/json" },
+          signal: AbortSignal.timeout(45_000),
+        });
+        return {
+          status: response.status,
+          retryAfter: response.headers.get("retry-after"),
+          body: await response.text(),
+        };
+      } catch (err) {
+        return { status: 0, body: "", retryAfter: null, networkError: err };
+      }
+    });
   }
 }
 
