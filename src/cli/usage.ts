@@ -6,8 +6,14 @@ export function usage(s: Settings): string {
 Usage: ${s.launcher} <command> [options]
 
   find "<topic>"      Which Wikidata item a topic is, and its article in each edition.
-    --lang <codes>      Comma-separated Wikipedia editions, e.g. uk,pl,cs.
-    --limit <n>         How many Wikidata matches to show, default 5.
+    --langs <codes>     Comma-separated Wikipedia editions, e.g. uk,pl,cs.
+    --search-lang <c>   Language of the query words, default en.
+    --limit <n>         How many candidates to show, default 5.
+
+  related <QID>       Articles close to a topic, to build a basket of 4-8 articles.
+    --lang <code>      Edition whose "similar text" search is used, default en.
+    --langs <codes>    Editions to show titles for.
+    --limit <n>        How many candidates, default 10.
 
   analyze             Year-over-year change of one or more topics.
     --topic <spec>      Repeatable. "Name=Q333,Q544", "pl:Article title" or free text.
@@ -36,5 +42,5 @@ Global switches:
   --offline           Use cached data only; fail instead of downloading.
   --refresh           Ignore the cache and download again.
 
-Commands still being built: related.`;
+`;
 }
